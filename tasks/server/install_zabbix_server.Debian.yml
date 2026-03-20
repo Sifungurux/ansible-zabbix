@@ -1,20 +1,51 @@
 ---
 
-- name: install zabbix server
+- name: Install mariaDB for server
+  include_role:
+    name: ansible-mysql
+  vars:
+    mysql_root_db_pass: "{{ db_pass }}"
+    mysql_db: [{ name: "{{ zabbix_db }}"}]
+    mysql_users: [{ name: "{{ zabbix_user }}", pass: "{{ zabbix_pass }}", priv: "*.*:ALL"}]
+  when: db_backend == "mysql"
+  tags:
+    - server.install
+
+- name: Install zabbix server
   apt: pkg="{{ item }}" state=present
   with_items:
-    - "zabbix-server-{{ db_backend }}" 
+    - "zabbix-server-{{ db_backend }}"
     - zabbix-frontend-php
   tags:
-    - install
+    - server.install
+
+- name: Find correct folder for create sql script
+  shell: "ls /usr/share/doc/ | grep zabbix-server"
+  register: release
+  changed_when: false
+  tags:
+    - server.install
+
+- name: Unarchive a file that is already on the remote machine
+  stat: path="/usr/share/doc/{{ release.stdout }}/create.sql.gz"
+  register: DB_create_file
+  changed_when: false
+  tags:
+    - server.install
+
+- name: Uncompress create.sql.gz file
+  shell: "gunzip /usr/share/doc/{{ release.stdout }}/create.sql.gz"
+  when: DB_create_file.stat.exists == true
+  tags:
+    - server.install
 
 - name: Restore database
-  mysql_db: name=zabbix login_user=zabbix_service login_password=pass_zabbix state=import target=/usr/share/doc/zabbix-server-{{ db_backend }}/create.sql.gz
-#  with_items:
-#    - schema.sql.gz
-#    - images.sql.gz
-#    - data.sql.gz 
+  mysql_db: name={{ zabbix_db }} login_user={{ zabbix_user }} login_password={{ zabbix_pass }} state=import target=/usr/share/doc/{{ release.stdout }}/create.sql
+  failed_when: false
+  tags:
+    - server.install
 
 - name: Start zabbix-server service
-  service: name={{ zabbix_service  }} state=restarted enabled=yes
-
+  service: name={{ zabbix_service }} state=restarted enabled=yes
+  tags:
+    - server.install
