@@ -1,7 +1,7 @@
 ---
 
 zabbix_server: ansible_default_ipv4
-zabbix_version: 3.4
+zabbix_version: 8.0
 zabbix_function: agent #default zabbix_function will be set to agent. Choose/Set function on server in inventory file
 
 # Database password

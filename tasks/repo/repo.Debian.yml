@@ -3,34 +3,37 @@
 - name: Install pre-req for installation of repo
   apt: name=curl state=present
 
-- name: Get repo name for latest
-  get_url: url="http://repo.zabbix.com/zabbix/{{ zabbix_version }}/debian/pool/main/z/zabbix-release/" dest=/tmp
-  changed_when: false
-  tags: 
-    - repo
-
-- name: Cleaning repo file
-  shell: "grep {{ ansible_distribution_release }}_all.deb /tmp/index.html | cut -f3 -d '>' | cut -f1 -d '<'" 
+- name: Get repo filename from index
+  shell: >
+    curl -s "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/release/{{ ansible_facts['distribution'] | lower }}/pool/main/z/zabbix-release/"
+    | grep -o 'zabbix-release[^"]*_all\.deb' | grep -v '%' | tail -1
   register: repo_name
   changed_when: false
 
+- name: Fail if repo filename not found
+  fail:
+    msg: "Could not find .deb for {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }} (zabbix_version={{ zabbix_version }})"
+  when: repo_name.stdout | trim == ""
+
 - set_fact:
-     ansible_zabbix_repo: "{{ repo_name.stdout }}"
+    ansible_zabbix_repo: "{{ repo_name.stdout | trim }}"
   tags: repo
 
-- name: Downloading zabix repo .deb file for latest repo
-  get_url: url="http://repo.zabbix.com/zabbix/{{ zabbix_version }}/debian/pool/main/z/zabbix-release/{{ ansible_zabbix_repo }}" dest=/opt
-  tags: 
+- name: Downloading zabbix repo .deb file
+  get_url:
+    url: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/release/{{ ansible_facts['distribution'] | lower }}/pool/main/z/zabbix-release/{{ ansible_zabbix_repo }}"
+    dest: "/tmp/{{ ansible_zabbix_repo }}"
+    force: yes
+  tags:
     - repo
 
 - name: Install zabbix repo
-  apt: deb="/opt/{{ ansible_zabbix_repo }}" dpkg_options='post-invoke="apt-get -f install -y"'
-  ignore_errors: True
-  tags: 
+  apt: deb="/tmp/{{ ansible_zabbix_repo }}"
+  tags:
     - repo
 
 - name: Update packages repository
   apt: update_cache=yes
   changed_when: false
   tags:
-    - repo 
+    - repo

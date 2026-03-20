@@ -4,15 +4,11 @@
   become_method: sudo
   gather_facts: yes
   roles:
-    - ansible-zabbix
-
-### Install agent with userparameters. Uncomment and add role as follow
-#   - {role: ansible-zabbix,
-#      userperm_dir: "/home/jkp/",
-#       userperm:
-#       [
-#       { name: "test", script: "test.conf" },
-#       { name: "test2", script: "test2.conf" }
-#       ]
-#       }
-
+          - {role: ansible-zabbix,
+               userperm_dir: "/home/jkp/",
+               userperm:
+#                 [
+#                 { name: "test", script: "test.conf" },
+#                 { name: "test2", script: "test2.conf" }
+#                 ]
+            }

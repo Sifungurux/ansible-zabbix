@@ -1,44 +1,44 @@
 ---
 
-- include_tasks: tasks/repo/repo.{{ ansible_os_family }}.yml
-  tags: 
-    - repo    
+- include_tasks: "{{ role_path }}/tasks/repo/repo.{{ ansible_facts['os_family'] }}.yml"
+  tags:
+    - repo
     - agent.install
     - server.install
     - proxy.install
 
-- include_tasks: "tasks/{{ zabbix_function }}/install_zabbix_{{ zabbix_function }}.{{ ansible_os_family }}.yml"
-  tags: 
-    - agent.install
-    - server.install
-    - proxy.install
-
-- include_tasks: "tasks/{{ zabbix_function }}/config_zabbix_{{ zabbix_function }}.{{ ansible_os_family }}.yml"
-  tags:    
-    - proxy.install
-    - server.install
-    - proxy.config
-    - server.config
-
-- include_tasks: "tasks/agent/zabbix_add_host.yml"
+- include_tasks: "{{ role_path }}/tasks/{{ zabbix_function }}/install_zabbix_{{ zabbix_function }}.{{ ansible_facts['os_family'] }}.yml"
   tags:
     - agent.install
-    - add.host
-
-- include_tasks: "tasks/proxy/zabbix_add_proxy.yml"
-  tags:
+    - server.install
     - proxy.install
-    - add.proxy
 
-- include_tasks: "tasks/agent/userparam.yml"
-  when : userparam is defined
-  tags: 
-    - userparam
+# - include_tasks: "tasks/{{ zabbix_function }}/config_zabbix_{{ zabbix_function }}.{{ ansible_os_family }}.yml"
+#   tags:    
+#     - proxy.install
+#     - server.install
+#     - proxy.config
+#     - server.config
 
-- include_tasks: "tasks/{{ zabbix_function }}/external_script.yml"
-  when: external_script is defined
-  tags: externalScript
+# - include_tasks: "tasks/agent/zabbix_add_host.yml"
+#   tags:
+#     - agent.install
+#     - add.host
 
-- include_tasks: tasks/server/zabbix-screens.yml
-  when : zabbix_function == "server"
-  tags: config.screen
+# - include_tasks: "tasks/proxy/zabbix_add_proxy.yml"
+#   tags:
+#     - proxy.install
+#     - add.proxy
+
+# - include_tasks: "tasks/agent/userparam.yml"
+#   when : userparam is defined
+#   tags: 
+#     - userparam
+
+# - include_tasks: "tasks/{{ zabbix_function }}/external_script.yml"
+#   when: external_script is defined
+#   tags: externalScript
+
+# - include_tasks: tasks/server/zabbix-screens.yml
+#   when : zabbix_function == "server"
+#   tags: config.screen
