@@ -37,7 +37,7 @@ cd tests
 ```
 
 This will:
-1. Start all three Lima VMs (downloading the Ubuntu 22.04 ARM64 image on first run)
+1. Start all three Lima VMs (downloading the Ubuntu 24.04 ARM64 image on first run)
 2. Wait for each VM to get an IP address
 3. Generate `inventory.ini` with the real IPs
 4. Bootstrap Python 3 on each VM using Ansible's `raw` module

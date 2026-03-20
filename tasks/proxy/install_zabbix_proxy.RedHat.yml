@@ -1,42 +1,42 @@
 ---
-- name: Install mariaDB for proxy
-  include_role:
+- name: Install MariaDB for proxy
+  ansible.builtin.include_role:
     name: ansible-mysql
   vars:
     mysql_root_db_pass: "{{ proxy_db_pass }}"
-    mysql_db: [{ name: "{{ zabbix_proxy_db }}"}]
-    mysql_users: [{ name: "{{ zabbix_proxy_user }}", pass: "{{zabbix_proxy_pass }}", priv: "*.*:ALL"}]
-  tags: 
-    - proxy.install
-
-- name: install zabbix proxy
-  yum: pkg="zabbix-proxy-{{ db_backend }}" state=present
+    mysql_db:
+      - name: "{{ zabbix_proxy_db }}"
+    mysql_users:
+      - name: "{{ zabbix_proxy_user }}"
+        pass: "{{ zabbix_proxy_pass }}"
+        priv: "*.*:ALL"
   tags:
     - proxy.install
 
-- name: Find correct folder for create sql script
-  shell: "ls /usr/share/doc/ | grep zabbix-proxy"
-  register: release
+- name: Install zabbix proxy
+  ansible.builtin.dnf:
+    name: "zabbix-proxy-{{ db_backend }}"
+    state: present
+  tags:
+    - proxy.install
+
+- name: Check if proxy schema file exists
+  ansible.builtin.stat:
+    path: /usr/share/zabbix-sql-scripts/mysql/proxy.sql.gz
+  register: proxy_schema_file
   changed_when: false
   tags:
     - proxy.install
 
-- name: "Unarchive a file that is already on the remote machine {{ release.stdout  }}"
-  stat: path="/usr/share/doc/{{ release.stdout }}/schema.sql.gz"
-  register: DB_schema_file
-  changed_when: false
-  tags:
-    - proxy.install
-
-- name: Uncompress create.sql.ghz file
-  shell: "gunzip /usr/share/doc/{{ release.stdout }}/schema.sql.gz"
-  when: DB_schema_file.stat.exists == true
-  tags:
-    - proxy.install
-
-- name: Restore database
-  mysql_db: name={{zabbix_proxy_db}} login_user={{ zabbix_proxy_user }} login_password={{ zabbix_proxy_pass }} state=import target=/usr/share/doc/{{ release.stdout }}/schema.sql
+- name: Import Zabbix proxy database schema
+  community.mysql.mysql_db:
+    name: "{{ zabbix_proxy_db }}"
+    login_user: "{{ zabbix_proxy_user }}"
+    login_password: "{{ zabbix_proxy_pass }}"
+    state: import
+    target: /usr/share/zabbix-sql-scripts/mysql/proxy.sql.gz
   failed_when: false
+  when: proxy_schema_file.stat.exists
   notify: rebuild
   tags:
     - proxy.install

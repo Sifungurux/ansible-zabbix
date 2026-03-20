@@ -1,6 +1,7 @@
 ---
-
 - name: Install zabbix agent
-  apt: pkg=zabbix-agent state=present
+  ansible.builtin.apt:
+    name: zabbix-agent
+    state: present
   tags:
     - agent.install

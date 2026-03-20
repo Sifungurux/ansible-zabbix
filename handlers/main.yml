@@ -4,7 +4,7 @@
   service: name={{ zabbix_service }} state=restarted enabled=yes
 
 - name: restart webservice
-  service: name={{ apache_service_RedHat }} state=restarted enabled=yes
+  service: name={{ apache_service_RedHat if ansible_facts['os_family'] == 'RedHat' else apache_service_Debian }} state=restarted enabled=yes
 
 - name: restart proxy
   service: name=zabbix-proxy state=restarted enabled=yes

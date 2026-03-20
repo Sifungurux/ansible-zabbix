@@ -1,6 +1,7 @@
 ---
-
 - name: Install zabbix agent
-  yum: pkg=zabbix-agent state=present
+  ansible.builtin.dnf:
+    name: zabbix-agent
+    state: present
   tags:
     - agent.install

@@ -1,35 +1,28 @@
 ---
+zabbix_server: "127.0.0.1"  # Set to the Zabbix server IP/hostname
+zabbix_version: "8.0"
+zabbix_function: agent  # agent | server | proxy
 
-zabbix_server: ansible_default_ipv4
-zabbix_version: 8.0
-zabbix_function: agent #default zabbix_function will be set to agent. Choose/Set function on server in inventory file
-
-# Database password
-db_pass: 1234
+# Zabbix admin credentials (used by zabbix_add_host)
+zabbix_admin_password: zabbix
 
 ## Database connection ##
-#
-db_backend: mysql
+db_backend: mysql  # mysql | pgsql
+db_pass: changeme
+
 zabbix_db: zabbix
 zabbix_user: zabbix
 zabbix_pass: zabbix
 
-external_script_dir: "/var/lib/zabbix/externalscripts"
+external_script_dir: "/usr/lib/zabbix/externalscripts"
 tls: false
 ssl: false
 
-### Proxy Config ###
-proxyMode: active                                   # 0 - passive mode, 1 - aktive mode
-
-proxy_db_pass: 1234
+### Proxy config ###
+proxy_db_pass: changeme
 zabbix_proxy_db: zabbixProxy
 zabbix_proxy_user: zabbixProxy
 zabbix_proxy_pass: zabbixProxy
-
-## screen variables
-#
-graph_width: 500
-graph_height: 100
-
+proxyMode: active  # active | passive
 
 proxy: false

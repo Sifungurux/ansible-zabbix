@@ -51,14 +51,25 @@ SSH_USER="$(whoami)"
 cat > "$INVENTORY" <<EOF
 [PRODUCTION]
 zabbix-server ansible_host=${zabbix_server_IP} zabbix_function=server note="Zabbix server"
-zabbix-agent  ansible_host=${zabbix_agent_IP}  note="Zabbix agent"
-zabbix-proxy  ansible_host=${zabbix_proxy_IP}  note="Zabbix proxy"
+zabbix-agent  ansible_host=${zabbix_agent_IP}  zabbix_function=agent note="Zabbix agent"
+zabbix-proxy  ansible_host=${zabbix_proxy_IP}  zabbix_function=proxy note="Zabbix proxy"
 
 [ZABBIX_SERVER]
 zabbix-server
 
 [ZABBIX_PROXIES]
 zabbix-proxy
+
+[ZABBIX_API]
+zabbix-api ansible_host=${zabbix_server_IP}
+
+[ZABBIX_API:vars]
+ansible_connection=httpapi
+ansible_network_os=community.zabbix.zabbix
+ansible_user=Admin
+ansible_httpapi_port=80
+ansible_httpapi_use_ssl=false
+ansible_httpapi_validate_certs=false
 
 [PRODUCTION:vars]
 ansible_user=${SSH_USER}
