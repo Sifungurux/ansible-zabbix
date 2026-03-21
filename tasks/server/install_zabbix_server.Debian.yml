@@ -1,20 +1,78 @@
 ---
-
-- name: install zabbix server
-  apt: pkg="{{ item }}" state=present
-  with_items:
-    - "zabbix-server-{{ db_backend }}" 
-    - zabbix-frontend-php
+- name: Install MariaDB for server
+  ansible.builtin.include_role:
+    name: ansible-mysql
+  vars:
+    mysql_root_db_pass: "{{ db_pass }}"
+    mysql_db:
+      - name: "{{ zabbix_db }}"
+    mysql_users:
+      - name: "{{ zabbix_user }}"
+        pass: "{{ zabbix_pass }}"
+        priv: "*.*:ALL"
+  when: db_backend == "mysql"
   tags:
-    - install
+    - server.install
 
-- name: Restore database
-  mysql_db: name=zabbix login_user=zabbix_service login_password=pass_zabbix state=import target=/usr/share/doc/zabbix-server-{{ db_backend }}/create.sql.gz
-#  with_items:
-#    - schema.sql.gz
-#    - images.sql.gz
-#    - data.sql.gz 
+- name: Fix any broken package state before install
+  ansible.builtin.command: apt-get -f install -y
+  changed_when: false
+  tags:
+    - server.install
 
-- name: Start zabbix-server service
-  service: name={{ zabbix_service  }} state=restarted enabled=yes
+- name: Check what is blocking zabbix server install
+  ansible.builtin.command: >
+    apt-get install --dry-run --no-install-recommends
+    zabbix-server-{{ db_backend }}
+    zabbix-frontend-php
+    zabbix-apache-conf
+    zabbix-sql-scripts
+  register: apt_dry_run
+  changed_when: false
+  failed_when: false
+  tags:
+    - server.install
 
+- name: Show apt dry-run output
+  ansible.builtin.debug:
+    msg: "{{ apt_dry_run.stdout_lines + apt_dry_run.stderr_lines }}"
+  tags:
+    - server.install
+
+- name: Install zabbix server packages
+  ansible.builtin.apt:
+    name:
+      - "zabbix-server-{{ db_backend }}"
+      - zabbix-frontend-php
+      - zabbix-apache-conf
+      - zabbix-sql-scripts
+    state: present
+  tags:
+    - server.install
+
+- name: Check if Zabbix schema is already imported
+  ansible.builtin.command: >
+    mysql --user={{ zabbix_user }} --password={{ zabbix_pass }}
+    --batch --skip-column-names
+    --execute="SELECT COUNT(*) FROM information_schema.tables
+               WHERE table_schema='{{ zabbix_db }}' AND table_name='dbversion'"
+  register: schema_check
+  changed_when: false
+  failed_when: false
+  tags:
+    - server.install
+
+- name: Import Zabbix server database schema
+  ansible.builtin.shell: >
+    zcat {{ zabbix_server_schema_path }} |
+    mysql --user={{ zabbix_user }} --password={{ zabbix_pass }} {{ zabbix_db }}
+  when: schema_check.stdout | default('0') | trim == '0'
+  tags:
+    - server.install
+
+- name: Enable zabbix-server service
+  ansible.builtin.service:
+    name: "{{ zabbix_service }}"
+    enabled: yes
+  tags:
+    - server.install

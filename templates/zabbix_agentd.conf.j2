@@ -94,7 +94,7 @@ LogFileSize=0
 # Default:
 # Server=
 
-Server={{ zabbix_server | default('127.0.0.1') }}{% for value in zabbix_proxies %},{{value}}{% endfor %}
+Server=127.0.0.1,{{ zabbix_server | default('127.0.0.1') }}{% for value in zabbix_proxies %},{{value}}{% endfor %}
 
 ### Option: ListenPort
 #	Agent will listen on this port for connections from the server.

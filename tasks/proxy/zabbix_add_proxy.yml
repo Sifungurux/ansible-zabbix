@@ -1,33 +1,13 @@
 ---
 
-- name: Get the username running the deploy
-  local_action: command whoami
-  become: false
-  register: username_on_the_host
-  changed_when: false
-  tags: 
-    - proxy.install
-    - proxy.add
-
 - name: Create a new proxy or update an existing proxies info
-  local_action:
-    module: zabbix_proxy
-    server_url: http://{{zabbix_server}}/zabbix
-    login_user: admin
-    login_password: zabbix
+  community.zabbix.zabbix_proxy:
     proxy_name: "{{ ansible_fqdn }}"
-    description: " {{ ansible_hostname }}"
+    description: "{{ ansible_hostname }}"
     status: "{{ proxyMode }}"
     state: present
-    interface:
-        type: 0
-        main: 1
-        useip: 1
-        ip: "{{ ansible_default_ipv4.address }}"
-        dns: "{{ ansible_fqdn }}"
-        port: 10050
-  become: yes
-  become_user: "{{username_on_the_host.stdout }}"
-  tags: 
-    - proxy.install
+  when: zabbix_function == 'proxy'
+  delegate_to: zabbix-api
+  become: false
+  tags:
     - proxy.add

@@ -15,7 +15,7 @@
     - proxy.install
 
 - name: Install zabbix proxy packages
-  ansible.builtin.dnf:
+  ansible.builtin.apt:
     name:
       - "zabbix-proxy-{{ proxy_db_backend }}"
       - zabbix-sql-scripts

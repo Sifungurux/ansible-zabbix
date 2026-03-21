@@ -1,18 +1,18 @@
 ---
-
-- name: Create zabbix_server.conf.d
-  file: path={{ external_script_dir | default('/usr/lib/zabbix/externalscripts/')}} state=directory
+- name: Create external scripts directory
+  ansible.builtin.file:
+    path: "{{ external_script_dir | default('/usr/lib/zabbix/externalscripts/') }}"
+    state: directory
   notify: rebuild
   tags: externalScript
 
-- name: Copy external script to server, remember to place in your script folder
-  copy:
+- name: Copy external script to server
+  ansible.builtin.copy:
     src: "{{ external_dir }}/{{ item.script }}"
     dest: "{{ external_script_dir | default('/usr/lib/zabbix/externalscripts/') }}/{{ item.script }}"
     owner: zabbix
     group: zabbix
-    mode: 0700
+    mode: "0700"
     backup: yes
-  with_items:
-    - "{{ external_script }}"
+  loop: "{{ external_script }}"
   tags: externalScript

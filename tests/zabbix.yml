@@ -6,13 +6,15 @@
   roles:
     - ansible-zabbix
 
-### Install agent with userparameters. Uncomment and add role as follow
-#   - {role: ansible-zabbix,
-#      userperm_dir: "/home/jkp/",
-#       userperm:
-#       [
-#       { name: "test", script: "test.conf" },
-#       { name: "test2", script: "test2.conf" }
-#       ]
-#       }
-
+# Also install the agent on the server VM so the built-in
+# "Zabbix server" host can monitor it at 127.0.0.1:10050
+- hosts: PRODUCTION:&ZABBIX_SERVER
+  become: yes
+  become_method: sudo
+  gather_facts: yes
+  vars:
+    zabbix_function: agent
+  roles:
+    - role: ansible-zabbix
+      tags:
+        - agent.install

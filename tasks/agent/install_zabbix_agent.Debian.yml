@@ -1,6 +1,6 @@
 ---
 - name: Install zabbix agent
-  ansible.builtin.dnf:
+  ansible.builtin.apt:
     name: zabbix-agent
     state: present
   tags:

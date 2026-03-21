@@ -1,40 +1,24 @@
 ---
-
-- name: get the username running the deploy
-  local_action: command whoami
-  become: false
-  register: username_on_the_host
-  changed_when: false
-  tags: 
-    - agent.install
-    - add.host
-
 - name: Create a new host or update an existing host's info
-  local_action:
-    module: zabbix_host
-    server_url: http://{{zabbix_server}}/zabbix
-    login_user: admin
-    login_password: zabbix
+  community.zabbix.zabbix_host:
     host_name: "{{ ansible_fqdn }}"
-    visible_name: " {{ ansible_hostname }}"   
-    description: My ExampleHost Description
+    visible_name: "{{ ansible_hostname }}"
     host_groups:
       - "{{ ansible_system }} servers"
     link_templates:
-      - "Template OS {{ ansible_system }}"
+      - "{{ ansible_system }} by Zabbix agent active"
     status: enabled
     state: present
-    inventory_mode: automatic 
+    inventory_mode: automatic
     interfaces:
       - type: 1
         main: 1
         useip: 1
-        ip: "{{ ansible_default_ipv4.address }}"
+        ip: "{{ ansible_host }}"
         dns: "{{ ansible_fqdn }}"
         port: 10050
-  become: yes
-  become_user: "{{username_on_the_host.stdout }}"
+  when: zabbix_function == 'agent'
+  delegate_to: zabbix-api
+  become: false
   tags:
-    - agent.install
     - add.host
-   

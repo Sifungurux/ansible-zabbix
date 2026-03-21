@@ -1,39 +1,18 @@
 ---
-
-- name: Get repo name for latest
-  get_url: url="http://repo.zabbix.com/zabbix/{{ zabbix_version  }}/rhel/7/x86_64/" dest=/tmp
-  changed_when: false
-  tags:
-    - repo    
-    - agent.install
-    - server.install
-    - proxy.install
-
-
-- name: Cleaning repo file
-  shell: "grep zabbix-release /tmp/index.html | tail -n 1 | cut -f2 -d '>' | cut -f1 -d '<'"
-  register: repo_name
-  changed_when: false
-  tags: 
-    - repo
-    - agent.install
-    - server.install
-    - proxy.install
-    
-- name: Get latest Redhat zabbix repo
-  get_url:
-    url: "http://repo.zabbix.com/zabbix/{{ zabbix_version  }}/rhel/7/x86_64/{{ repo_name.stdout }}"
-    dest: /tmp
-  tags: 
-    - repo
-    - agent.install
-    - server.install
-    - proxy.install
-
-- name: install zabbix rpm from a local file
-  yum:
-    name: "/tmp/{{ repo_name.stdout }}"
+- name: Install Zabbix repo RPM for RedHat
+  ansible.builtin.dnf:
+    name: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/release/rhel/{{ ansible_distribution_major_version }}/{{ ansible_architecture }}/zabbix-release-latest.el{{ ansible_distribution_major_version }}.noarch.rpm"
     state: present
+    disable_gpg_check: false
+  tags:
+    - repo
+    - agent.install
+    - server.install
+    - proxy.install
+
+- name: Clean dnf cache after repo install
+  ansible.builtin.command: dnf clean all
+  changed_when: false
   tags:
     - repo
     - agent.install

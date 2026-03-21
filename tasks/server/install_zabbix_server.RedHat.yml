@@ -1,46 +1,46 @@
 ---
-
-- name: Install mariaDB for server
-  include_role:
-    name: { role: ansible-mysql, tags: [ 'mysql' ]}
+- name: Install MariaDB for server
+  ansible.builtin.include_role:
+    name: ansible-mysql
   vars:
     mysql_root_db_pass: "{{ db_pass }}"
-    mysql_db: [{ name: "{{ zabbix_db }}"}]
-    mysql_users: [{ name: "{{ zabbix_db }}", pass: "{{zabbix_pass }}", priv: "*.*:ALL"}]
+    mysql_db:
+      - name: "{{ zabbix_db }}"
+    mysql_users:
+      - name: "{{ zabbix_user }}"
+        pass: "{{ zabbix_pass }}"
+        priv: "*.*:ALL"
   when: db_backend == "mysql"
-  tags: 
-    - server.install
-  
-- name: install zabbix server
-  yum: pkg="{{ item }}" state=present
-  with_items:
-    - "zabbix-server-{{ db_backend }}" 
-    - "zabbix-web-{{ db_backend }}"
   tags:
     - server.install
 
-- name: Find correct folder for create sql script
-  shell: "ls /usr/share/doc/ | grep zabbix-server"
-  register: release
+- name: Install zabbix server packages
+  ansible.builtin.dnf:
+    name:
+      - "zabbix-server-{{ db_backend }}"
+      - "zabbix-web-{{ db_backend }}"
+      - zabbix-apache-conf
+      - zabbix-sql-scripts
+    state: present
+  tags:
+    - server.install
+
+- name: Check if Zabbix schema is already imported
+  ansible.builtin.command: >
+    mysql --user={{ zabbix_user }} --password={{ zabbix_pass }}
+    --batch --skip-column-names
+    --execute="SELECT COUNT(*) FROM information_schema.tables
+               WHERE table_schema='{{ zabbix_db }}' AND table_name='dbversion'"
+  register: schema_check
   changed_when: false
-  tags:
-    - server.install
-
-- name: Unarchive a file that is already on the remote machine
-  stat: path="/usr/share/doc/{{ release.stdout }}/create.sql.gz"
-  register: DB_create_file
-  changed_when: false
-  tags:
-    - server.install
-
-- name: Uncompress create.sql.ghz file
-  shell: "gunzip /usr/share/doc/{{ release.stdout }}/create.sql.gz"
-  when: DB_create_file.stat.exists == true
-  tags:
-    - server.install
-
-- name: Restore database
-  mysql_db: name=zabbix login_user={{ zabbix_user }} login_password={{ zabbix_pass }} state=import target=/usr/share/doc/{{ release.stdout }}/create.sql
   failed_when: false
+  tags:
+    - server.install
+
+- name: Import Zabbix server database schema
+  ansible.builtin.shell: >
+    zcat {{ zabbix_server_schema_path }} |
+    mysql --user={{ zabbix_user }} --password={{ zabbix_pass }} {{ zabbix_db }}
+  when: schema_check.stdout | default('0') | trim == '0'
   tags:
     - server.install

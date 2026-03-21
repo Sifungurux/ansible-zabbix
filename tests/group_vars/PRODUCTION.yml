@@ -1,0 +1,7 @@
+---
+db_backend: mysql
+zabbix_user: zabbix
+zabbix_pass: zabbix
+zabbix_db: zabbix
+proxy_db_backend: sqlite3
+zabbix_proxy_db: /var/lib/zabbix/zabbix_proxy.db

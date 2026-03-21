@@ -1,1 +1,28 @@
 ---
+galaxy_info:
+  author: "Sifungurux"
+  description: "Installs and configures Zabbix server, agent, and proxy on RHEL and Debian-based systems"
+  license: BSD
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions:
+        - 8
+        - 9
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+  galaxy_tags:
+    - monitoring
+    - zabbix
+    - mysql
+    - mariadb
+
+dependencies:
+  - role: ansible-mysql
+    when: db_backend == "mysql"

@@ -1,0 +1,18 @@
+---
+- name: Setting up proxy configuration
+  ansible.builtin.template:
+    src: zabbix_proxy.conf.j2
+    dest: /etc/zabbix/zabbix_proxy.conf
+  notify: restart proxy
+  tags:
+    - proxy.config
+    - proxy.install
+
+- name: Ensure zabbix-proxy service is started and enabled
+  ansible.builtin.service:
+    name: zabbix-proxy
+    state: started
+    enabled: yes
+  tags:
+    - proxy.config
+    - proxy.install

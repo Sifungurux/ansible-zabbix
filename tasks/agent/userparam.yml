@@ -1,21 +1,21 @@
 ---
-
-- name: Create zabbix_server.conf.d
-  file: path=/etc/zabbix/zabbix_server.conf.d state=directory
+- name: Create zabbix_agentd.d directory
+  ansible.builtin.file:
+    path: /etc/zabbix/zabbix_agentd.d
+    state: directory
   tags:
     - userparam
 
-- name: Copy userperm script to server, remember to place in your script folder
-  copy:
-    src: "{{ userperm_dir }}/{{ item.script }}"
+- name: Copy userparam script to agent
+  ansible.builtin.copy:
+    src: "{{ userparam_dir }}/{{ item.script }}"
     dest: "/etc/zabbix/zabbix_agentd.d/{{ item.name }}.conf"
     owner: zabbix
     group: zabbix
-    mode: 0644
+    mode: "0644"
     backup: yes
-    validate: grep '^UserParameter=.*\[\*], .*' %s 
-  with_items:
-    - "{{ userperm }}"
+    validate: grep '^UserParameter=.*\[\*], .*' %s
+  loop: "{{ userparam }}"
   notify: restart agent
   tags:
     - userparam

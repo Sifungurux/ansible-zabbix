@@ -3,15 +3,8 @@
   become: yes
   become_method: sudo
   gather_facts: yes
-  vars: 
-    - zabbix_function: server
+  vars:
+    mysql_root_db_pass: 1234
   roles:
-    - ansible-zabbix
-
-    #- {role:  ansible-zabbix, 
-    #          external_dir: "/home/jkp/",
-    #            external_script: 
-    #              [
-    #              { name: "test3", script: "test3.sh" }
-    #              ]
-    #       }
+          - {role: ansible-mysql, mysql_db: [{name: zabbix}], mysql_users: [{name: "{{ zabbix_user }}", pass: "{{zabbix_pass }}", priv: "*.*:ALL"}]}
+          - {role:  ansible-zabbix }
