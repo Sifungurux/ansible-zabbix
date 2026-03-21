@@ -20,13 +20,13 @@ for name in zabbix-server zabbix-agent zabbix-proxy; do
     echo "$name is already running"
   else
     echo "Starting $name..."
-    limactl start --name="$name" "$SCRIPT_DIR/lima/$name.yaml"
+    limactl start --tty=false --name="$name" "$SCRIPT_DIR/lima/$name.yaml"
   fi
 done
 
 # --- Get IPs ---
 get_ip() {
-  limactl shell "$1" -- ip -4 route get 1.1.1.1 2>/dev/null | awk '/src/{print $7}'
+  limactl shell "$1" -- ip -4 route get 192.168.105.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1); exit}'
 }
 
 echo "Waiting for IPs..."
@@ -92,3 +92,7 @@ ansible -i "$INVENTORY" PRODUCTION -m raw -a "apt-get install -y python3" --beco
 # --- Run Ansible ---
 echo "Running Ansible..."
 ansible-playbook -i "$INVENTORY" -v "$SCRIPT_DIR/zabbix.yml"
+
+# --- Run tests ---
+echo "Running tests..."
+ansible-playbook -i "$INVENTORY" "$SCRIPT_DIR/test_zabbix.yml"

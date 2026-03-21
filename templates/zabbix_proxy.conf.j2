@@ -183,6 +183,7 @@ DBName={{ zabbix_proxy_db }}
 # Default:
 # DBUser=
 
+{% if proxy_db_backend != 'sqlite3' %}
 DBUser={{ zabbix_proxy_user }}
 
 ### Option: DBPassword
@@ -192,6 +193,7 @@ DBUser={{ zabbix_proxy_user }}
 # Mandatory: no
 # Default:
 DBPassword={{ zabbix_proxy_pass }}
+{% endif %}
 
 ### Option: DBSocket
 #       Path to MySQL socket.

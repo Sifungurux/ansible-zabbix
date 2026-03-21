@@ -3,3 +3,5 @@
 zabbix_service: zabbix-server
 apache_service_RedHat: httpd
 apache_service_Debian: apache2
+zabbix_server_schema_path: "/usr/share/zabbix/sql-scripts/{{ db_backend }}/server.sql.gz"
+zabbix_proxy_schema_path: "/usr/share/zabbix/sql-scripts/{{ proxy_db_backend }}/proxy.sql"

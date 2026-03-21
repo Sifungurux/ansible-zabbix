@@ -10,6 +10,7 @@ disk: "20GiB"
 
 networks:
   - vzNAT: true
+  - lima: shared
 
 provision:
   - mode: system

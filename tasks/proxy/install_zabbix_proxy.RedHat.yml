@@ -10,33 +10,54 @@
       - name: "{{ zabbix_proxy_user }}"
         pass: "{{ zabbix_proxy_pass }}"
         priv: "*.*:ALL"
+  when: proxy_db_backend != 'sqlite3'
   tags:
     - proxy.install
 
-- name: Install zabbix proxy
+- name: Install zabbix proxy packages
   ansible.builtin.dnf:
-    name: "zabbix-proxy-{{ db_backend }}"
+    name:
+      - "zabbix-proxy-{{ proxy_db_backend }}"
+      - zabbix-sql-scripts
     state: present
   tags:
     - proxy.install
 
-- name: Check if proxy schema file exists
-  ansible.builtin.stat:
-    path: /usr/share/zabbix-sql-scripts/mysql/proxy.sql.gz
-  register: proxy_schema_file
+- name: Ensure SQLite3 database directory exists
+  ansible.builtin.file:
+    path: "{{ zabbix_proxy_db | dirname }}"
+    state: directory
+    owner: zabbix
+    group: zabbix
+    mode: "0750"
+  when: proxy_db_backend == 'sqlite3'
+  tags:
+    - proxy.install
+
+- name: Check if Zabbix proxy schema is already imported
+  ansible.builtin.command: >
+    mysql --user={{ zabbix_proxy_user }} --password={{ zabbix_proxy_pass }}
+    --batch --skip-column-names
+    --execute="SELECT COUNT(*) FROM information_schema.tables
+               WHERE table_schema='{{ zabbix_proxy_db }}' AND table_name='hosts'"
+  register: proxy_schema_check
   changed_when: false
+  failed_when: false
+  when: proxy_db_backend != 'sqlite3'
   tags:
     - proxy.install
 
 - name: Import Zabbix proxy database schema
-  community.mysql.mysql_db:
-    name: "{{ zabbix_proxy_db }}"
-    login_user: "{{ zabbix_proxy_user }}"
-    login_password: "{{ zabbix_proxy_pass }}"
-    state: import
-    target: /usr/share/zabbix-sql-scripts/mysql/proxy.sql.gz
-  failed_when: false
-  when: proxy_schema_file.stat.exists
-  notify: rebuild
+  ansible.builtin.shell: >
+    mysql --user={{ zabbix_proxy_user }} --password={{ zabbix_proxy_pass }} {{ zabbix_proxy_db }}
+    < {{ zabbix_proxy_schema_path }}
+  when: proxy_db_backend != 'sqlite3' and proxy_schema_check.stdout | default('0') | trim == '0'
+  tags:
+    - proxy.install
+
+- name: Enable zabbix-proxy service
+  ansible.builtin.service:
+    name: zabbix-proxy
+    enabled: yes
   tags:
     - proxy.install

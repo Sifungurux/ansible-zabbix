@@ -6,7 +6,7 @@
     host_groups:
       - "{{ ansible_system }} servers"
     link_templates:
-      - "Template OS {{ ansible_system }}"
+      - "{{ ansible_system }} by Zabbix agent active"
     status: enabled
     state: present
     inventory_mode: automatic
@@ -14,11 +14,11 @@
       - type: 1
         main: 1
         useip: 1
-        ip: "{{ ansible_default_ipv4.address }}"
+        ip: "{{ ansible_host }}"
         dns: "{{ ansible_fqdn }}"
         port: 10050
+  when: zabbix_function == 'agent'
   delegate_to: zabbix-api
   become: false
   tags:
-    - agent.install
     - add.host

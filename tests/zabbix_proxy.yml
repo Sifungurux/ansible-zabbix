@@ -5,11 +5,3 @@
   gather_facts: yes
   roles:
     - ansible-zabbix
-            
-
-- hosts: PRODUCTION:!ZABBIX_SERVER:!ZABBIX_PROXIES
-  become: yes
-  become_method: sudo
-  gather_facts: yes
-  roles:
-          - {role: ansible-zabbix, zabbix_function: agent, tags: ['proxy.install'] }

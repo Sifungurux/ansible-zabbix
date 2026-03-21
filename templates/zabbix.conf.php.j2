@@ -1,11 +1,11 @@
-i<?php
+<?php
 // Zabbix GUI configuration file.
 global $DB;
 
 $DB['TYPE']     = 'MYSQL';
 $DB['SERVER']   = 'localhost';
 $DB['PORT']     = '0';
-$DB['DATABASE'] = 'zabbix';
+$DB['DATABASE'] = '{{ zabbix_db }}';
 $DB['USER']     = '{{ zabbix_user }}';
 $DB['PASSWORD'] = '{{ zabbix_pass }}';
 

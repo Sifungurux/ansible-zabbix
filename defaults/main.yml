@@ -1,6 +1,6 @@
 ---
 zabbix_server: "127.0.0.1"  # Set to the Zabbix server IP/hostname
-zabbix_version: "8.0"
+zabbix_version: "7.4"
 zabbix_function: agent  # agent | server | proxy
 
 # Zabbix admin credentials (used by zabbix_add_host)
@@ -19,8 +19,9 @@ tls: false
 ssl: false
 
 ### Proxy config ###
+proxy_db_backend: sqlite3  # sqlite3 | mysql | pgsql
 proxy_db_pass: changeme
-zabbix_proxy_db: zabbixProxy
+zabbix_proxy_db: /var/lib/zabbix/zabbix_proxy.db  # file path for sqlite3, DB name for mysql/pgsql
 zabbix_proxy_user: zabbixProxy
 zabbix_proxy_pass: zabbixProxy
 proxyMode: active  # active | passive

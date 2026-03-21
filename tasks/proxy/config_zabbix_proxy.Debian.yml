@@ -7,3 +7,12 @@
   tags:
     - proxy.config
     - proxy.install
+
+- name: Ensure zabbix-proxy service is started and enabled
+  ansible.builtin.service:
+    name: zabbix-proxy
+    state: started
+    enabled: yes
+  tags:
+    - proxy.config
+    - proxy.install

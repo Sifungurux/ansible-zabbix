@@ -1,0 +1,202 @@
+---
+# Verify ansible-zabbix role applied correctly.
+# Run after the role has been applied:
+#   ansible-playbook -i inventory.ini tests/test_zabbix.yml
+- name: Verify Zabbix installation
+  hosts: PRODUCTION
+  become: yes
+  tasks:
+
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    # --- Service running ---
+
+    - name: Assert zabbix-agent is running and enabled on server VM
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['zabbix-agent.service'] is defined
+          - ansible_facts.services['zabbix-agent.service'].state == 'running'
+          - ansible_facts.services['zabbix-agent.service'].status == 'enabled'
+        fail_msg: "zabbix-agent service is not running on server VM (required for self-monitoring)"
+      when: zabbix_function == 'server'
+
+    - name: Assert zabbix-server is running and enabled
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['zabbix-server.service'] is defined
+          - ansible_facts.services['zabbix-server.service'].state == 'running'
+          - ansible_facts.services['zabbix-server.service'].status == 'enabled'
+        fail_msg: "zabbix-server service is not running or not enabled"
+      when: zabbix_function == 'server'
+
+    - name: Assert zabbix-agent is running and enabled
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['zabbix-agent.service'] is defined
+          - ansible_facts.services['zabbix-agent.service'].state == 'running'
+          - ansible_facts.services['zabbix-agent.service'].status == 'enabled'
+        fail_msg: "zabbix-agent service is not running or not enabled"
+      when: zabbix_function == 'agent'
+
+    - name: Assert zabbix-proxy is running and enabled
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['zabbix-proxy.service'] is defined
+          - ansible_facts.services['zabbix-proxy.service'].state == 'running'
+          - ansible_facts.services['zabbix-proxy.service'].status == 'enabled'
+        fail_msg: "zabbix-proxy service is not running or not enabled"
+      when: zabbix_function == 'proxy'
+
+    # --- Ports listening ---
+
+    - name: Assert zabbix-server trapper port is listening (10051)
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 10051
+        timeout: 5
+        state: started
+        msg: "zabbix-server is not listening on port 10051"
+      when: zabbix_function == 'server'
+
+    - name: Assert zabbix-agent port is listening (10050)
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 10050
+        timeout: 5
+        state: started
+        msg: "zabbix-agent is not listening on port 10050"
+      when: zabbix_function == 'agent'
+
+    - name: Assert zabbix-proxy trapper port is listening (10051)
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 10051
+        timeout: 5
+        state: started
+        msg: "zabbix-proxy is not listening on port 10051"
+      when: zabbix_function == 'proxy'
+
+    # --- Config files deployed ---
+
+    - name: Assert zabbix_server.conf is deployed
+      ansible.builtin.stat:
+        path: /etc/zabbix/zabbix_server.conf
+      register: server_conf
+      when: zabbix_function == 'server'
+
+    - name: Assert zabbix_server.conf exists
+      ansible.builtin.assert:
+        that: server_conf.stat.exists
+        fail_msg: "/etc/zabbix/zabbix_server.conf not found"
+      when: zabbix_function == 'server'
+
+    - name: Assert zabbix_agentd.conf is deployed
+      ansible.builtin.stat:
+        path: /etc/zabbix/zabbix_agentd.conf
+      register: agent_conf
+      when: zabbix_function == 'agent'
+
+    - name: Assert zabbix_agentd.conf exists
+      ansible.builtin.assert:
+        that: agent_conf.stat.exists
+        fail_msg: "/etc/zabbix/zabbix_agentd.conf not found"
+      when: zabbix_function == 'agent'
+
+    - name: Assert zabbix_proxy.conf is deployed
+      ansible.builtin.stat:
+        path: /etc/zabbix/zabbix_proxy.conf
+      register: proxy_conf
+      when: zabbix_function == 'proxy'
+
+    - name: Assert zabbix_proxy.conf exists
+      ansible.builtin.assert:
+        that: proxy_conf.stat.exists
+        fail_msg: "/etc/zabbix/zabbix_proxy.conf not found"
+      when: zabbix_function == 'proxy'
+
+    # --- Server: DB schema and web UI ---
+
+    - name: Assert Zabbix database schema is imported
+      ansible.builtin.command: >
+        mysql --user={{ zabbix_user }} --password={{ zabbix_pass }}
+        --batch --skip-column-names
+        --execute="SELECT COUNT(*) FROM information_schema.tables
+                   WHERE table_schema='{{ zabbix_db }}' AND table_name='dbversion'"
+      changed_when: false
+      register: schema_check
+      when: zabbix_function == 'server' and db_backend | default('mysql') == 'mysql'
+
+    - name: Assert schema is imported
+      ansible.builtin.assert:
+        that: schema_check.stdout | trim == '1'
+        fail_msg: "Zabbix database schema not imported — 'dbversion' table missing"
+      when: zabbix_function == 'server' and db_backend | default('mysql') == 'mysql'
+
+    - name: Assert Zabbix web UI responds
+      ansible.builtin.uri:
+        url: "http://localhost/zabbix/"
+        status_code: 200
+        timeout: 10
+      register: web_check
+      when: zabbix_function == 'server'
+
+    - name: Assert web config (zabbix.conf.php) is deployed
+      ansible.builtin.stat:
+        path: /etc/zabbix/web/zabbix.conf.php
+      register: web_conf
+      when: zabbix_function == 'server'
+
+    - name: Assert zabbix.conf.php exists
+      ansible.builtin.assert:
+        that: web_conf.stat.exists
+        fail_msg: "/etc/zabbix/web/zabbix.conf.php not found"
+      when: zabbix_function == 'server'
+
+    # --- Agent: server reachability ---
+
+    - name: Assert agent config points to correct server
+      ansible.builtin.command: >
+        grep -E "^Server=" /etc/zabbix/zabbix_agentd.conf
+      changed_when: false
+      register: agent_server_line
+      when: zabbix_function == 'agent'
+
+    - name: Assert agent Server line contains zabbix_server
+      ansible.builtin.assert:
+        that: zabbix_server in agent_server_line.stdout
+        fail_msg: >
+          Agent Server= line does not contain {{ zabbix_server }}.
+          Got: {{ agent_server_line.stdout }}
+      when: zabbix_function == 'agent'
+
+    # --- Proxy: DB file (SQLite3) ---
+
+    - name: Assert SQLite3 database file exists
+      ansible.builtin.stat:
+        path: "{{ zabbix_proxy_db }}"
+      register: proxy_db_file
+      when: zabbix_function == 'proxy' and proxy_db_backend | default('sqlite3') == 'sqlite3'
+
+    - name: Assert SQLite3 database file is present
+      ansible.builtin.assert:
+        that: proxy_db_file.stat.exists
+        fail_msg: "Zabbix proxy SQLite3 database file not found at {{ zabbix_proxy_db }}"
+      when: zabbix_function == 'proxy' and proxy_db_backend | default('sqlite3') == 'sqlite3'
+
+    # --- Proxy: server reachability ---
+
+    - name: Assert proxy config points to correct server
+      ansible.builtin.command: >
+        grep -E "^Server=" /etc/zabbix/zabbix_proxy.conf
+      changed_when: false
+      register: proxy_server_line
+      when: zabbix_function == 'proxy'
+
+    - name: Assert proxy Server line contains zabbix_server
+      ansible.builtin.assert:
+        that: zabbix_server in proxy_server_line.stdout
+        fail_msg: >
+          Proxy Server= line does not contain {{ zabbix_server }}.
+          Got: {{ proxy_server_line.stdout }}
+      when: zabbix_function == 'proxy'

@@ -22,14 +22,14 @@
     - agent.config
 
 - ansible.builtin.include_tasks: "{{ role_path }}/tasks/agent/zabbix_add_host.yml"
+  when: zabbix_function == 'agent'
   tags:
-    - agent.install
     - add.host
 
 - ansible.builtin.include_tasks: "{{ role_path }}/tasks/proxy/zabbix_add_proxy.yml"
+  when: zabbix_function == 'proxy'
   tags:
-    - proxy.install
-    - add.proxy
+    - proxy.add
 
 - ansible.builtin.include_tasks: "{{ role_path }}/tasks/agent/userparam.yml"
   when: userparam is defined

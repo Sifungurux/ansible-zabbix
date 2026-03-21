@@ -25,22 +25,22 @@
   tags:
     - server.install
 
-- name: Check if schema has already been imported
-  ansible.builtin.stat:
-    path: /usr/share/zabbix-sql-scripts/mysql/server.sql.gz
-  register: schema_file
+- name: Check if Zabbix schema is already imported
+  ansible.builtin.command: >
+    mysql --user={{ zabbix_user }} --password={{ zabbix_pass }}
+    --batch --skip-column-names
+    --execute="SELECT COUNT(*) FROM information_schema.tables
+               WHERE table_schema='{{ zabbix_db }}' AND table_name='dbversion'"
+  register: schema_check
   changed_when: false
+  failed_when: false
   tags:
     - server.install
 
 - name: Import Zabbix server database schema
-  community.mysql.mysql_db:
-    name: "{{ zabbix_db }}"
-    login_user: "{{ zabbix_user }}"
-    login_password: "{{ zabbix_pass }}"
-    state: import
-    target: /usr/share/zabbix-sql-scripts/mysql/server.sql.gz
-  failed_when: false
-  when: schema_file.stat.exists
+  ansible.builtin.shell: >
+    zcat {{ zabbix_server_schema_path }} |
+    mysql --user={{ zabbix_user }} --password={{ zabbix_pass }} {{ zabbix_db }}
+  when: schema_check.stdout | default('0') | trim == '0'
   tags:
     - server.install

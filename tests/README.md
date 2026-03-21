@@ -81,16 +81,37 @@ The script skips starting VMs that are already running and goes straight to re-g
 
 ---
 
+## Running tests only
+
+If the VMs are already running and the role has been applied, run the test playbook directly:
+
+```bash
+ansible-playbook -i inventory.ini test_zabbix.yml
+```
+
+Tests verify per host (based on `zabbix_function`):
+- Service is running and enabled
+- Correct port is listening (10050 for agent, 10051 for server/proxy)
+- Config file is deployed
+- Agent/proxy config points to the correct server IP
+- **Server only:** database schema is imported, web UI responds on port 80
+
+---
+
 ## File structure
 
 ```
 tests/
 ├── lima/
-│   ├── zabbix-server.yaml   # Lima VM config
+│   ├── zabbix-server.yaml   # Lima VM config (Ubuntu 24.04)
 │   ├── zabbix-agent.yaml
 │   └── zabbix-proxy.yaml
-├── run.sh                   # Start VMs + run Ansible
+├── group_vars/
+│   ├── PRODUCTION.yml       # Shared role vars
+│   └── ZABBIX_API.yml       # Zabbix API credentials (httpapi)
+├── run.sh                   # Start VMs + run Ansible + run tests
 ├── stop.sh                  # Stop or delete VMs
 ├── inventory.ini            # Generated at runtime (do not edit)
-└── zabbix_prep.yml          # Ansible playbook
+├── zabbix.yml               # Main deployment playbook
+└── test_zabbix.yml          # Verification playbook (run after deploy)
 ```

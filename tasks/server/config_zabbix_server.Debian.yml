@@ -15,7 +15,7 @@
   ansible.builtin.template:
     src: zabbix.conf.php.j2
     dest: /etc/zabbix/web/zabbix.conf.php
-  notify: restart zabbix
+  notify: restart webservice
   tags:
     - server.install
     - server.config

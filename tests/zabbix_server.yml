@@ -4,7 +4,7 @@
   become_method: sudo
   gather_facts: yes
   vars:
-          - mysql_root_db_pass: 1234
+    mysql_root_db_pass: 1234
   roles:
           - {role: ansible-mysql, mysql_db: [{name: zabbix}], mysql_users: [{name: "{{ zabbix_user }}", pass: "{{zabbix_pass }}", priv: "*.*:ALL"}]}
           - {role:  ansible-zabbix }

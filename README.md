@@ -1,7 +1,7 @@
 Zabbix Server, Agent, and Proxy
 ================================
 
-Installs and configures Zabbix 6.x/8.x on RHEL 8/9 and Ubuntu 22.04+/Debian. Supports agent, server, and proxy deployment via the `zabbix_function` variable. The server and proxy modes depend on the `ansible-mysql` role for database setup when using a MySQL/MariaDB backend.
+Installs and configures Zabbix 7.4 LTS on RHEL 8/9 and Ubuntu 24.04/Debian. Supports agent, server, and proxy deployment via the `zabbix_function` variable. The server depends on the `ansible-mysql` role for database setup when using a MySQL/MariaDB backend. Proxies default to SQLite3, requiring no separate database server.
 
 Requirements
 ------------
@@ -20,12 +20,11 @@ Supported platforms:
 
 | OS | Zabbix version |
 |----|----------------|
-| RHEL / Rocky / AlmaLinux 8, 9 | 6.x, 8.x |
-| Ubuntu 24.04 (Noble) | 8.x |
-| Ubuntu 22.04 (Jammy) | 6.x |
-| Debian 12 (Bookworm) | 6.x, 8.x |
+| RHEL / Rocky / AlmaLinux 8, 9 | 7.4 LTS |
+| Ubuntu 24.04 (Noble) | 7.4 LTS |
+| Debian 12 (Bookworm) | 7.4 LTS |
 
-> Zabbix 8.x requires Ubuntu 24.04 or later. Ubuntu 22.04 only supports Zabbix 6.x due to library version constraints (`libc6`, `libssl`, etc.).
+> Zabbix 7.4 is the recommended LTS release. Zabbix 8.x requires MySQL 8.4+ which is not available in Ubuntu 24.04 default repositories.
 
 ---
 
@@ -78,7 +77,7 @@ Variables shared across all hosts:
 
 ```yaml
 ---
-zabbix_version: "8.0"     # Zabbix version to install
+zabbix_version: "7.4"     # Zabbix version to install
 zabbix_server: 192.168.1.10  # IP/hostname of the Zabbix server
                               # Used in agent/proxy config and API host registration
 zabbix_proxies:
@@ -106,11 +105,25 @@ zabbix_admin_password: "CHANGE_ME_strong_admin_password"
 
 ### group_vars/ZABBIX_PROXIES.yml
 
+SQLite3 is the recommended backend for proxies — no separate database server required:
+
 ```yaml
 ---
 zabbix_function: proxy
-db_backend: mysql
+proxy_db_backend: sqlite3   # sqlite3 (recommended) | mysql | pgsql
 proxyMode: active           # active or passive
+
+# File path for the SQLite3 database (proxy creates it automatically on first start)
+zabbix_proxy_db: /var/lib/zabbix/zabbix_proxy.db
+```
+
+To use MySQL instead:
+
+```yaml
+---
+zabbix_function: proxy
+proxy_db_backend: mysql
+proxyMode: active
 
 # MySQL root password for the proxy database host
 proxy_db_pass: "CHANGE_ME_strong_root_password"
@@ -144,20 +157,21 @@ All Role Variables
 
 | Variable | Default | Description |
 |---|---|---|
-| `zabbix_version` | `8.0` | Zabbix version to install (`6.0`, `6.2`, `6.4`, `8.0`) |
+| `zabbix_version` | `7.4` | Zabbix version to install. Zabbix 8.x requires MySQL 8.4+ (not available in Ubuntu 24.04) |
 | `zabbix_function` | `agent` | Component to deploy: `agent`, `server`, or `proxy` |
 | `zabbix_server` | `127.0.0.1` | Zabbix server IP/hostname. Written into agent/proxy config and used in `add.host` API calls |
 | `zabbix_proxies` | `[]` | List of proxy IPs. Agents accept passive checks from these in addition to `zabbix_server` |
 | `zabbix_admin_password` | `zabbix` | Zabbix web UI admin password. Used by `add.host` and `add.proxy` API calls. **Change this** |
-| `db_backend` | `mysql` | Database backend for server/proxy: `mysql` or `pgsql` |
-| `db_pass` | `changeme` | MySQL root password — passed to `ansible-mysql` for database provisioning. **Change this** |
+| `db_backend` | `mysql` | Database backend for the **server**: `mysql` or `pgsql` |
+| `db_pass` | `changeme` | MySQL root password — passed to `ansible-mysql` for server database provisioning. **Change this** |
 | `zabbix_db` | `zabbix` | Zabbix server database name |
 | `zabbix_user` | `zabbix` | Zabbix server database user |
 | `zabbix_pass` | `zabbix` | Zabbix server database password. **Change this** |
-| `zabbix_proxy_db` | `zabbixProxy` | Zabbix proxy database name |
-| `zabbix_proxy_user` | `zabbixProxy` | Zabbix proxy database user |
-| `zabbix_proxy_pass` | `zabbixProxy` | Zabbix proxy database password. **Change this** |
-| `proxy_db_pass` | `changeme` | MySQL root password on the proxy host for database provisioning. **Change this** |
+| `proxy_db_backend` | `sqlite3` | Database backend for the **proxy**: `sqlite3` (recommended), `mysql`, or `pgsql` |
+| `zabbix_proxy_db` | `/var/lib/zabbix/zabbix_proxy.db` | Proxy database: file path for SQLite3, or database name for MySQL/PostgreSQL |
+| `zabbix_proxy_user` | `zabbixProxy` | Proxy database user (MySQL/PostgreSQL only) |
+| `zabbix_proxy_pass` | `zabbixProxy` | Proxy database password (MySQL/PostgreSQL only). **Change this** |
+| `proxy_db_pass` | `changeme` | MySQL root password on the proxy host (MySQL backend only). **Change this** |
 | `proxyMode` | `active` | Proxy operating mode: `active` or `passive` |
 | `ListenPort` | `10050` | Port the Zabbix agent listens on |
 | `external_script_dir` | `/usr/lib/zabbix/externalscripts` | Directory for external alert scripts on the server |
@@ -191,11 +205,22 @@ Playbooks
     - role: ansible-zabbix
 ```
 
-Run the full deployment:
+Run the full deployment in order — server first, then proxies and agents, then API registration once the server is confirmed running:
 
 ```bash
-ansible-playbook -i inventory/hosts.ini site.yml
+ansible-playbook -i inventory/hosts.ini site.yml --tags server.install -l ZABBIX_SERVER
+ansible-playbook -i inventory/hosts.ini site.yml --tags proxy.install -l ZABBIX_PROXIES
+ansible-playbook -i inventory/hosts.ini site.yml --tags agent.install -l ZABBIX_AGENTS
+
+# The server VM also needs a local agent for the built-in "Zabbix server" self-monitoring host
+ansible-playbook -i inventory/hosts.ini site.yml --tags agent.install -l ZABBIX_SERVER
+
+# After confirming the Zabbix web UI is accessible:
+ansible-playbook -i inventory/hosts.ini site.yml --tags add.proxy -l ZABBIX_PROXIES
+ansible-playbook -i inventory/hosts.ini site.yml --tags add.host -l ZABBIX_AGENTS
 ```
+
+> The built-in **Zabbix server** host monitors the server process itself at `127.0.0.1:10050`. Installing `zabbix-agent` on the server VM is required for this host to show green in the dashboard. The agent config on the server automatically includes `127.0.0.1` in `Server=` to allow local passive checks.
 
 ---
 
@@ -222,7 +247,7 @@ ansible-playbook -i inventory/hosts.ini site.yml --tags agent.config -l ZABBIX_A
 
 ### Register a host in Zabbix via the API
 
-This uses the `community.zabbix.zabbix_host` module, which runs against the `ZABBIX_API` host group. The task is delegated to `zabbix-api` automatically.
+Host and proxy registration (`add.host`, `add.proxy`) are intentionally decoupled from `agent.install` and `proxy.install`. The Zabbix server must be fully up and its database schema imported before API calls will succeed. Always run registration as a separate step after confirming the server is running.
 
 ```bash
 ansible-playbook -i inventory/hosts.ini site.yml --tags add.host -l web03.example.com
