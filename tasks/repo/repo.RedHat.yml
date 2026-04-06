@@ -4,6 +4,7 @@
     name: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/release/rhel/{{ ansible_distribution_major_version }}/{{ ansible_architecture }}/zabbix-release-latest.el{{ ansible_distribution_major_version }}.noarch.rpm"
     state: present
     disable_gpg_check: false
+  register: zabbix_repo_install
   tags:
     - repo
     - agent.install
@@ -13,6 +14,7 @@
 - name: Clean dnf cache after repo install
   ansible.builtin.command: dnf clean all
   changed_when: false
+  when: zabbix_repo_install.changed
   tags:
     - repo
     - agent.install
