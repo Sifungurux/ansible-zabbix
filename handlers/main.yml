@@ -12,6 +12,9 @@
 - name: restart agent
   service: name=zabbix-agent state=restarted enabled=yes
 
+- name: restart haproxy
+  service: name=haproxy state=restarted enabled=yes
+
 - name: rebuild
   template: 
     src=templates/zabbix_{{ zabbix_function }}.conf.j2 dest=/etc/zabbix/zabbix_{{ zabbix_function }}.conf

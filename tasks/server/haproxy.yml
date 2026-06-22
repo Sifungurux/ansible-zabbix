@@ -1,0 +1,27 @@
+---
+- name: Install HAProxy
+  ansible.builtin.package:
+    name: haproxy
+    state: present
+  tags:
+    - server.install
+
+- name: Configure HAProxy for Patroni primary routing
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    mode: "0644"
+    owner: root
+    group: root
+  notify: restart haproxy
+  tags:
+    - server.install
+    - server.config
+
+- name: Enable and start HAProxy
+  ansible.builtin.service:
+    name: haproxy
+    enabled: true
+    state: started
+  tags:
+    - server.install

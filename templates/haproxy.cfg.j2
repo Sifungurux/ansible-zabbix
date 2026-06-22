@@ -1,0 +1,22 @@
+# Managed by ansible-zabbix - do not edit by hand
+global
+    maxconn 100
+    log /dev/log local0
+
+defaults
+    mode tcp
+    timeout connect 5s
+    timeout client 30s
+    timeout server 30s
+    log global
+
+frontend pg_primary
+    bind 127.0.0.1:{{ zabbix_db_proxy_port }}
+    default_backend pg_primary_nodes
+
+backend pg_primary_nodes
+    option httpchk GET /primary
+    http-check expect status 200
+{% for node in zabbix_pg_nodes %}
+    server {{ node.host }} {{ node.host }}:{{ node.port }} check port {{ node.restapi_port }}
+{% endfor %}
