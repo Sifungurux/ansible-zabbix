@@ -14,6 +14,18 @@ zabbix_db: zabbix
 zabbix_user: zabbix
 zabbix_pass: zabbix
 
+### High availability (zabbix-server + frontend) ###
+zabbix_ha_enabled: false  # set true when targeting 2+ zabbix-server hosts
+zabbix_ha_node_port: 10051  # advertised in NodeAddress for frontend->active-node routing
+
+### PostgreSQL/Patroni connection routing ###
+zabbix_db_proxy_mode: haproxy  # haproxy (manage local HAProxy) | none (direct/external endpoint)
+zabbix_db_proxy_port: 6432  # local port zabbix-server/frontend connect to when proxy mode is haproxy
+zabbix_pg_nodes: []  # required when zabbix_db_proxy_mode == haproxy: [{host, port, restapi_port}]
+zabbix_db_host: ""  # used as DBHost directly when zabbix_db_proxy_mode == none
+zabbix_db_port: 5432  # used as DBPort directly when zabbix_db_proxy_mode == none
+zabbix_db_timescaledb: true  # apply the TimescaleDB schema after the base pgsql schema
+
 external_script_dir: "/usr/lib/zabbix/externalscripts"
 tls: false
 ssl: false
