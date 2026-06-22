@@ -505,8 +505,16 @@ git commit -m "feat: render pgsql DB type/endpoint and HA-aware frontend server 
 - Create: `molecule/ha/requirements.yml`
 
 **Interfaces:**
-- Consumes: all variables from Tasks 1-7. Assumes the Patroni role's `cluster` Molecule scenario (in `../ansible-role-postgres-timescaledb-patroni/molecule/cluster/`) has been run first (`molecule converge -s cluster` from that role's directory) so 3 Postgres/Patroni containers (`patroni-db1`, `patroni-db2`, `patroni-db3` — exact container names come from that scenario's `molecule.yml`, confirm by running `molecule converge -s cluster` there and `docker ps` to read real names before writing `zabbix_pg_nodes` below) exist on a Docker network reachable from this scenario.
-- Produces: 2 running containers (`zabbix-server-1`, `zabbix-server-2`) with `ansible-zabbix` applied, consumed by Task 9's verify step.
+- Consumes: all variables from Tasks 1-7. The Patroni role's `cluster` Molecule scenario
+  (`../ansible-role-postgres-timescaledb-patroni/molecule/cluster/molecule.yml`, already read) defines
+  3 containers named exactly `pg-node1`, `pg-node2`, `pg-node3` (group `pg_cluster`), each running
+  PostgreSQL on 5432 and Patroni's REST API on 8008. **That scenario's `molecule.yml` declares no
+  explicit `networks:` key**, so Molecule's docker driver does not put them on a shared, externally
+  joinable network by default — `zabbix-server-1`/`zabbix-server-2` cannot reach `pg-node1-3` by
+  hostname unless both scenarios are explicitly attached to the same Docker network. Do not assume a
+  network name exists; this task creates one.
+- Produces: 2 running containers (`zabbix-server-1`, `zabbix-server-2`) with `ansible-zabbix` applied,
+  consumed by Task 9's verify step.
 
 - [ ] **Step 1: Write `molecule/ha/requirements.yml`**
 
@@ -519,7 +527,40 @@ collections:
     version: ">=3.0.0"
 ```
 
-- [ ] **Step 2: Write `molecule/ha/molecule.yml`**
+- [ ] **Step 2: Create a shared external Docker network for both scenarios**
+
+```bash
+docker network create zabbix-ha-test 2>/dev/null || true
+```
+
+This network must exist before either Molecule scenario's `create` step runs. It's idempotent
+(`|| true` tolerates "already exists").
+
+- [ ] **Step 3: Attach the patroni role's `cluster` scenario to that network**
+
+Modify `../ansible-role-postgres-timescaledb-patroni/molecule/cluster/molecule.yml`: add a
+`networks:` key to each of the three platform entries (`pg-node1`, `pg-node2`, `pg-node3`), e.g.:
+
+```yaml
+  - name: pg-node1
+    image: geerlingguy/docker-debian12-ansible:latest
+    command: "/lib/systemd/systemd"
+    cgroupns_mode: host
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    pre_build_image: true
+    groups:
+      - pg_cluster
+    networks:
+      - name: zabbix-ha-test
+```
+
+(repeat the `networks:` addition for `pg-node2` and `pg-node3`, keeping every other line unchanged).
+This is the one change this plan makes outside `ansible-zabbix` — it's additive (one new key per
+platform) and does not alter that role's own test behavior when run standalone.
+
+- [ ] **Step 4: Write `molecule/ha/molecule.yml`**
 
 ```yaml
 ---
@@ -528,14 +569,24 @@ driver:
 platforms:
   - name: zabbix-server-1
     image: "geerlingguy/docker-debian12-ansible:latest"
+    command: "/lib/systemd/systemd"
+    cgroupns_mode: host
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     pre_build_image: true
     networks:
-      - name: patroni-cluster_default
+      - name: zabbix-ha-test
   - name: zabbix-server-2
     image: "geerlingguy/docker-debian12-ansible:latest"
+    command: "/lib/systemd/systemd"
+    cgroupns_mode: host
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     pre_build_image: true
     networks:
-      - name: patroni-cluster_default
+      - name: zabbix-ha-test
 provisioner:
   name: ansible
   playbooks:
@@ -544,9 +595,11 @@ verifier:
   name: ansible
 ```
 
-`patroni-cluster_default` must match the actual Docker network name the patroni role's `cluster` Molecule scenario creates — confirm with `docker network ls` after running that scenario's `converge`, and correct this value if it differs (Molecule/Docker typically names networks `<project>_default` or `molecule_default`; read `../ansible-role-postgres-timescaledb-patroni/molecule/cluster/molecule.yml` to find the actual driver network config before assuming this name is correct).
+`command`/`cgroupns_mode`/`privileged`/`volumes` mirror the patroni role's own platform config
+(`systemd` must run as PID 1 inside the container for `ansible.builtin.service` to manage
+`haproxy`/`zabbix-server`/`apache2` — copy this pattern exactly, it's already proven working there).
 
-- [ ] **Step 3: Write `molecule/ha/converge.yml`**
+- [ ] **Step 5: Write `molecule/ha/converge.yml`**
 
 ```yaml
 ---
@@ -560,29 +613,40 @@ verifier:
     zabbix_db_proxy_mode: haproxy
     zabbix_db_proxy_port: 6432
     zabbix_pg_nodes:
-      - { host: patroni-db1, port: 5432, restapi_port: 8008 }
-      - { host: patroni-db2, port: 5432, restapi_port: 8008 }
-      - { host: patroni-db3, port: 5432, restapi_port: 8008 }
+      - { host: pg-node1, port: 5432, restapi_port: 8008 }
+      - { host: pg-node2, port: 5432, restapi_port: 8008 }
+      - { host: pg-node3, port: 5432, restapi_port: 8008 }
     zabbix_db: zabbix
     zabbix_user: zabbix
     zabbix_pass: zabbix
-    zabbix_pg_admin_pass: patroni
+    zabbix_pg_admin_user: testuser
+    zabbix_pg_admin_pass: TestAppPass123!
   roles:
     - role: ansible-zabbix
 ```
 
-The `patroni-dbN` hostnames must match the actual container names from the patroni role's `cluster` scenario (confirm with `docker ps` as noted in Step 2 — adjust here if they differ, e.g. `patroni-cluster-db1`).
+`zabbix_pg_admin_user`/`zabbix_pg_admin_pass` match the `timescaledb_app_user`/
+`timescaledb_app_password` the patroni role's `cluster` scenario already provisions
+(`molecule/cluster/molecule.yml` group_vars: `timescaledb_app_user: testuser`,
+`timescaledb_app_password: TestAppPass123!`) — this user already has privileges on the `testdb`
+database in that scenario, but **not** automatically on a new `zabbix` database; Task 3's
+`postgresql_db`/`postgresql_user` modules create the `zabbix` database/role using this admin
+identity, so it must be a Postgres role with `CREATEDB`/superuser-equivalent rights. If connecting as
+`testuser` fails with a permission error during Step 6, use `patroni_superuser_username`/
+`patroni_superuser_password` from that same scenario instead (`postgres` / `TestSuperPass123!`).
 
-- [ ] **Step 4: Run the patroni cluster scenario, then converge this scenario**
+- [ ] **Step 6: Run the patroni cluster scenario, then converge this scenario**
 
 ```bash
+docker network create zabbix-ha-test 2>/dev/null || true
 cd ../ansible-role-postgres-timescaledb-patroni && molecule converge -s cluster
-docker network ls   # confirm the network name used in molecule/ha/molecule.yml
-docker ps            # confirm the container names used in molecule/ha/converge.yml
 cd ../ansible-zabbix && molecule converge -s ha
 ```
 
-Expected: both scenarios report `PLAY RECAP` with no `failed` tasks. If container/network names from Steps 2-3 don't match what `docker ps`/`docker network ls` show, fix `molecule.yml`/`converge.yml` and re-run.
+Expected: both scenarios report `PLAY RECAP` with no `failed` tasks. If `postgresql_db`/
+`postgresql_user` in Task 3 fail with an authentication/permission error, switch
+`zabbix_pg_admin_user`/`zabbix_pg_admin_pass` in `converge.yml` to the superuser credentials noted in
+Step 5 and re-run `molecule converge -s ha`.
 
 - [ ] **Step 5: Commit**
 
@@ -718,4 +782,4 @@ git commit -m "docs: document pgsql/patroni HA variables and example playbook"
 
 - **Spec coverage:** DB routing (Task 4/6/7), schema/path fix (Task 1/3), HA server config (Task 6), HA frontend (Task 7), DB/user provisioning (Task 3), testing/login/idempotence (Task 8/9) — every spec section has a task.
 - **Existing mysql path:** Tasks 5-7 all gate new behavior behind `db_backend == "pgsql"` or `zabbix_ha_enabled`; mysql-only tasks gain an explicit `when: db_backend == "mysql"` rather than being deleted, so `db_backend: mysql` users see zero behavior change.
-- **Open item flagged explicitly, not hidden:** Task 8 Steps 2-3 call out that the Docker network/container names are assumptions to be confirmed against the patroni role's actual scenario output — this is a real unknown (depends on that role's `molecule.yml`, not yet inspected), not a placeholder; the step gives the exact commands to resolve it.
+- **Docker network gap resolved:** inspected `../ansible-role-postgres-timescaledb-patroni/molecule/cluster/molecule.yml` directly — container names are `pg-node1`/`pg-node2`/`pg-node3`, and that scenario declares no `networks:` key, so Task 8 now creates an explicit shared `zabbix-ha-test` Docker network and adds a `networks:` key to both scenarios' platform configs rather than assuming a name.
