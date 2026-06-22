@@ -1,0 +1,81 @@
+---
+- name: Install PostgreSQL client packages
+  ansible.builtin.package:
+    name: "{{ zabbix_psql_client_packages[ansible_facts['os_family']] }}"
+    state: present
+  tags:
+    - server.install
+
+- name: Determine PostgreSQL connection endpoint
+  ansible.builtin.set_fact:
+    _zabbix_pg_connect_host: "{{ '127.0.0.1' if zabbix_db_proxy_mode == 'haproxy' else zabbix_db_host }}"
+    _zabbix_pg_connect_port: "{{ zabbix_db_proxy_port if zabbix_db_proxy_mode == 'haproxy' else zabbix_db_port }}"
+  tags:
+    - server.install
+
+- name: Create Zabbix database
+  community.postgresql.postgresql_db:
+    name: "{{ zabbix_db }}"
+    login_host: "{{ _zabbix_pg_connect_host }}"
+    login_port: "{{ _zabbix_pg_connect_port }}"
+    login_user: "{{ zabbix_pg_admin_user | default('postgres') }}"
+    login_password: "{{ zabbix_pg_admin_pass | default(omit) }}"
+  run_once: true
+  delegate_to: "{{ ansible_play_hosts_all[0] }}"
+  tags:
+    - server.install
+
+- name: Create Zabbix database user
+  community.postgresql.postgresql_user:
+    name: "{{ zabbix_user }}"
+    password: "{{ zabbix_pass }}"
+    db: "{{ zabbix_db }}"
+    priv: ALL
+    login_host: "{{ _zabbix_pg_connect_host }}"
+    login_port: "{{ _zabbix_pg_connect_port }}"
+    login_user: "{{ zabbix_pg_admin_user | default('postgres') }}"
+    login_password: "{{ zabbix_pg_admin_pass | default(omit) }}"
+  run_once: true
+  delegate_to: "{{ ansible_play_hosts_all[0] }}"
+  tags:
+    - server.install
+
+- name: Check if Zabbix schema is already imported
+  ansible.builtin.shell: >
+    PGPASSWORD={{ zabbix_pass }} psql
+    --host={{ _zabbix_pg_connect_host }} --port={{ _zabbix_pg_connect_port }}
+    --username={{ zabbix_user }} --dbname={{ zabbix_db }}
+    --tuples-only --no-align
+    --command="SELECT to_regclass('public.dbversion')"
+  register: zabbix_pg_schema_check
+  changed_when: false
+  run_once: true
+  delegate_to: "{{ ansible_play_hosts_all[0] }}"
+  tags:
+    - server.install
+
+- name: Import Zabbix server database schema
+  ansible.builtin.shell: >
+    zcat {{ zabbix_server_schema_path }} |
+    PGPASSWORD={{ zabbix_pass }} psql
+    --host={{ _zabbix_pg_connect_host }} --port={{ _zabbix_pg_connect_port }}
+    --username={{ zabbix_user }} --dbname={{ zabbix_db }}
+  when: zabbix_pg_schema_check.stdout | default('') | trim == ''
+  run_once: true
+  delegate_to: "{{ ansible_play_hosts_all[0] }}"
+  tags:
+    - server.install
+
+- name: Import TimescaleDB schema
+  ansible.builtin.shell: >
+    PGPASSWORD={{ zabbix_pass }} psql
+    --host={{ _zabbix_pg_connect_host }} --port={{ _zabbix_pg_connect_port }}
+    --username={{ zabbix_user }} --dbname={{ zabbix_db }}
+    --file={{ zabbix_server_timescaledb_schema_path }}
+  when:
+    - zabbix_db_timescaledb
+    - zabbix_pg_schema_check.stdout | default('') | trim == ''
+  run_once: true
+  delegate_to: "{{ ansible_play_hosts_all[0] }}"
+  tags:
+    - server.install
