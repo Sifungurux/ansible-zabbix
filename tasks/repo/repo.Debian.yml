@@ -6,7 +6,9 @@
 - name: Get repo filename from index
   shell: >
     curl -s "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/release/{{ ansible_facts['distribution'] | lower }}/pool/main/z/zabbix-release/"
-    | grep -o 'zabbix-release[^"]*_all\.deb' | grep -v '%' | tail -1
+    | grep -o 'zabbix-release[^"]*_all\.deb' | grep -v '%'
+    | grep "_latest_{{ zabbix_version }}+{{ ansible_facts['distribution'] | lower }}{{ ansible_facts['distribution_major_version'] if ansible_facts['distribution'] == 'Debian' else ansible_facts['distribution_version'] }}_all\.deb$"
+    | tail -1
   register: repo_name
   changed_when: false
 
