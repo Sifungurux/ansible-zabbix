@@ -20,10 +20,6 @@
     - db_backend == "pgsql"
     - zabbix_db_proxy_mode == "haproxy"
 
-- name: Provision PostgreSQL database, user, and schema
-  ansible.builtin.include_tasks: postgresql_db.yml
-  when: db_backend == "pgsql"
-
 - name: Fix any broken package state before install
   ansible.builtin.command: apt-get -f install -y
   changed_when: false
@@ -82,6 +78,10 @@
     - schema_check.stdout | default('0') | trim == '0'
   tags:
     - server.install
+
+- name: Provision PostgreSQL database, user, and schema
+  ansible.builtin.include_tasks: postgresql_db.yml
+  when: db_backend == "pgsql"
 
 - name: Enable zabbix-server service
   ansible.builtin.service:
