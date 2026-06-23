@@ -29,8 +29,37 @@
   community.postgresql.postgresql_user:
     name: "{{ zabbix_user }}"
     password: "{{ zabbix_pass }}"
-    db: "{{ zabbix_db }}"
-    priv: ALL
+    login_host: "{{ _zabbix_pg_connect_host }}"
+    login_port: "{{ _zabbix_pg_connect_port }}"
+    login_user: "{{ zabbix_pg_admin_user | default('postgres') }}"
+    login_password: "{{ zabbix_pg_admin_pass | default(omit) }}"
+  run_once: true
+  delegate_to: "{{ ansible_play_hosts_all[0] }}"
+  tags:
+    - server.install
+
+- name: Grant Zabbix database user full privileges on Zabbix database
+  community.postgresql.postgresql_privs:
+    database: "{{ zabbix_db }}"
+    type: database
+    roles: "{{ zabbix_user }}"
+    privs: ALL
+    login_host: "{{ _zabbix_pg_connect_host }}"
+    login_port: "{{ _zabbix_pg_connect_port }}"
+    login_user: "{{ zabbix_pg_admin_user | default('postgres') }}"
+    login_password: "{{ zabbix_pg_admin_pass | default(omit) }}"
+  run_once: true
+  delegate_to: "{{ ansible_play_hosts_all[0] }}"
+  tags:
+    - server.install
+
+- name: Grant Zabbix database user privileges on the public schema
+  community.postgresql.postgresql_privs:
+    database: "{{ zabbix_db }}"
+    type: schema
+    objs: public
+    roles: "{{ zabbix_user }}"
+    privs: ALL
     login_host: "{{ _zabbix_pg_connect_host }}"
     login_port: "{{ _zabbix_pg_connect_port }}"
     login_user: "{{ zabbix_pg_admin_user | default('postgres') }}"
