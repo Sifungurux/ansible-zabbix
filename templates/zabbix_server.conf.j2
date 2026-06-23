@@ -99,6 +99,10 @@ SocketDir=/var/run/zabbix
 # DBName=
 
 DBName={{ zabbix_db }}
+{% if db_backend == "pgsql" %}
+DBHost={{ '127.0.0.1' if zabbix_db_proxy_mode == 'haproxy' else zabbix_db_host }}
+DBPort={{ zabbix_db_proxy_port if zabbix_db_proxy_mode == 'haproxy' else zabbix_db_port }}
+{% endif %}
 
 ### Option: DBSchema
 #       Schema name. Used for IBM DB2 and PostgreSQL.
@@ -621,3 +625,15 @@ Include=/etc/zabbix/zabbix_server.conf.d/*.conf
 # Mandatory: no
 # Default:
 # LoadModule=
+
+####### HIGH AVAILABILITY #######
+
+{% if zabbix_ha_enabled %}
+### Option: HANodeName
+#       Unique high availability cluster node name. Managed by ansible-zabbix.
+HANodeName={{ zabbix_ha_node_name | default(inventory_hostname) }}
+
+### Option: NodeAddress
+#       Address:port the frontend uses to reach this node.
+NodeAddress={{ zabbix_ha_node_address | default(ansible_host) }}:{{ zabbix_ha_node_port }}
+{% endif %}
