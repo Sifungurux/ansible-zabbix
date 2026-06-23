@@ -1,0 +1,21 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  vars:
+    db_backend: pgsql
+    zabbix_function: server
+    zabbix_ha_enabled: true
+    zabbix_db_proxy_mode: haproxy
+    zabbix_db_proxy_port: 6432
+    zabbix_pg_nodes:
+      - { host: pg-node1, port: 5432, restapi_port: 8008 }
+      - { host: pg-node2, port: 5432, restapi_port: 8008 }
+      - { host: pg-node3, port: 5432, restapi_port: 8008 }
+    zabbix_db: zabbix
+    zabbix_user: zabbix
+    zabbix_pass: zabbix
+    zabbix_pg_admin_user: postgres
+    zabbix_pg_admin_pass: TestSuperPass123!
+  roles:
+    - role: ansible-zabbix
