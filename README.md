@@ -176,6 +176,14 @@ All Role Variables
 | `ListenPort` | `10050` | Port the Zabbix agent listens on |
 | `external_script_dir` | `/usr/lib/zabbix/externalscripts` | Directory for external alert scripts on the server |
 | `tls` | `false` | Enable TLS for agent/server communication. When `true`, includes `/etc/zabbix/zabbix_server.conf.d/*.conf` |
+| `zabbix_ha_enabled` | `false` | Set `true` when targeting 2+ `zabbix-server` hosts (PostgreSQL backend only) |
+| `zabbix_ha_node_port` | `10051` | Advertised in `NodeAddress` for frontend → active-node routing |
+| `zabbix_db_proxy_mode` | `haproxy` | How `zabbix-server`/frontend reach the Patroni cluster: `haproxy` (role manages a local HAProxy) or `none` (direct/external endpoint) |
+| `zabbix_db_proxy_port` | `6432` | Local port `zabbix-server`/frontend connect to when `zabbix_db_proxy_mode` is `haproxy` |
+| `zabbix_pg_nodes` | `[]` | Required when `zabbix_db_proxy_mode == haproxy`: list of `{host, port, restapi_port}` for each Patroni node |
+| `zabbix_db_host` | `""` | Used as `DBHost` directly when `zabbix_db_proxy_mode == none` |
+| `zabbix_db_port` | `5432` | Used as `DBPort` directly when `zabbix_db_proxy_mode == none` |
+| `zabbix_db_timescaledb` | `true` | Apply the TimescaleDB schema after the base pgsql schema (PostgreSQL backend only) |
 
 ---
 
@@ -221,6 +229,28 @@ ansible-playbook -i inventory/hosts.ini site.yml --tags add.host -l ZABBIX_AGENT
 ```
 
 > The built-in **Zabbix server** host monitors the server process itself at `127.0.0.1:10050`. Installing `zabbix-agent` on the server VM is required for this host to show green in the dashboard. The agent config on the server automatically includes `127.0.0.1` in `Server=` to allow local passive checks.
+
+### HA zabbix-server against an existing Patroni cluster
+
+Run 2+ `zabbix-server` nodes against a PostgreSQL/Patroni cluster managed separately (e.g. by `ansible-role-postgres-timescaledb-patroni`). This role only consumes the cluster's connection endpoint — it does not depend on or manage the Patroni role itself. Each node runs its own local HAProxy to route writes to whichever Patroni node is currently primary, and the frontend discovers the active `zabbix-server` node dynamically instead of pointing at a static one:
+
+```yaml
+---
+- name: Deploy HA Zabbix server
+  hosts: ZABBIX_SERVER
+  become: yes
+  vars:
+    db_backend: pgsql
+    zabbix_ha_enabled: true
+    zabbix_pg_nodes:
+      - { host: db1.example.com, port: 5432, restapi_port: 8008 }
+      - { host: db2.example.com, port: 5432, restapi_port: 8008 }
+      - { host: db3.example.com, port: 5432, restapi_port: 8008 }
+  roles:
+    - role: ansible-zabbix
+```
+
+`ZABBIX_SERVER` must contain at least 2 hosts for HA. `db_backend: pgsql` plus `zabbix_ha_enabled: true` are the only required additions — `zabbix_db_proxy_mode` defaults to `haproxy`, so each node provisions its own local proxy on `zabbix_db_proxy_port` (default `6432`) and connects to it instead of to a single fixed database host.
 
 ---
 
