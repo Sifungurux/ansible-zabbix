@@ -52,7 +52,9 @@
       - zabbix-frontend-php
       - zabbix-apache-conf
       - zabbix-sql-scripts
+      - "{{ 'php-pgsql' if db_backend == 'pgsql' else 'php-mysql' }}"
     state: present
+  notify: restart webservice
   tags:
     - server.install
 
