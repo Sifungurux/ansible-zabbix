@@ -14,6 +14,16 @@
   tags:
     - server.install
 
+- name: Set up HAProxy for Patroni primary routing
+  ansible.builtin.include_tasks: haproxy.yml
+  when:
+    - db_backend == "pgsql"
+    - zabbix_db_proxy_mode == "haproxy"
+
+- name: Provision PostgreSQL database, user, and schema
+  ansible.builtin.include_tasks: postgresql_db.yml
+  when: db_backend == "pgsql"
+
 - name: Fix any broken package state before install
   ansible.builtin.command: apt-get -f install -y
   changed_when: false
@@ -59,6 +69,7 @@
   register: schema_check
   changed_when: false
   failed_when: false
+  when: db_backend == "mysql"
   tags:
     - server.install
 
@@ -66,7 +77,9 @@
   ansible.builtin.shell: >
     zcat {{ zabbix_server_schema_path }} |
     mysql --user={{ zabbix_user }} --password={{ zabbix_pass }} {{ zabbix_db }}
-  when: schema_check.stdout | default('0') | trim == '0'
+  when:
+    - db_backend == "mysql"
+    - schema_check.stdout | default('0') | trim == '0'
   tags:
     - server.install
 
