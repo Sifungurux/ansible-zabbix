@@ -1,5 +1,6 @@
 ---
 zabbix_server: "127.0.0.1"  # Set to the Zabbix server IP/hostname
+zabbix_proxies: []  # List of proxy IPs agents accept passive checks from, in addition to zabbix_server
 zabbix_version: "7.4"
 zabbix_function: agent  # agent | server | proxy
 

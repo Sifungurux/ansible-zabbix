@@ -25,4 +25,6 @@ galaxy_info:
 
 dependencies:
   - role: ansible-mysql
-    when: db_backend == "mysql"
+    when:
+      - zabbix_function == "server"
+      - db_backend == "mysql"
