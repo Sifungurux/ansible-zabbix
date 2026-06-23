@@ -1,4 +1,35 @@
 ---
+- name: Install locales package
+  ansible.builtin.apt:
+    name: locales
+    state: present
+  tags:
+    - server.install
+
+- name: Check which locales are already generated
+  ansible.builtin.command: locale -a
+  register: zabbix_available_locales
+  changed_when: false
+  tags:
+    - server.install
+
+- name: Enable en_US.UTF-8 in locale.gen
+  ansible.builtin.lineinfile:
+    path: /etc/locale.gen
+    regexp: '^# ?en_US\.UTF-8 UTF-8'
+    line: 'en_US.UTF-8 UTF-8'
+  when: "'en_US.utf8' not in zabbix_available_locales.stdout"
+  register: zabbix_locale_gen_conf
+  tags:
+    - server.install
+
+- name: Generate en_US.UTF-8 locale
+  ansible.builtin.command: locale-gen
+  when: zabbix_locale_gen_conf.changed
+  notify: restart webservice
+  tags:
+    - server.install
+
 - name: Install MariaDB for server
   ansible.builtin.include_role:
     name: ansible-mysql
