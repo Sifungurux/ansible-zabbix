@@ -71,13 +71,16 @@
 
 - name: Check if Zabbix schema is already imported
   ansible.builtin.shell: >
-    PGPASSWORD={{ zabbix_pass }} psql
+    psql
     --host={{ _zabbix_pg_connect_host }} --port={{ _zabbix_pg_connect_port }}
     --username={{ zabbix_user }} --dbname={{ zabbix_db }}
     --tuples-only --no-align
     --command="SELECT to_regclass('public.dbversion')"
+  environment:
+    PGPASSWORD: "{{ zabbix_pass }}"
   register: zabbix_pg_schema_check
   changed_when: false
+  no_log: true
   run_once: true
   delegate_to: "{{ ansible_play_hosts_all[0] }}"
   tags:
@@ -86,10 +89,13 @@
 - name: Import Zabbix server database schema
   ansible.builtin.shell: >
     zcat {{ zabbix_server_schema_path }} |
-    PGPASSWORD={{ zabbix_pass }} psql
+    psql
     --host={{ _zabbix_pg_connect_host }} --port={{ _zabbix_pg_connect_port }}
     --username={{ zabbix_user }} --dbname={{ zabbix_db }}
+  environment:
+    PGPASSWORD: "{{ zabbix_pass }}"
   when: zabbix_pg_schema_check.stdout | default('') | trim == ''
+  no_log: true
   run_once: true
   delegate_to: "{{ ansible_play_hosts_all[0] }}"
   tags:
@@ -97,13 +103,16 @@
 
 - name: Import TimescaleDB schema
   ansible.builtin.shell: >
-    PGPASSWORD={{ zabbix_pass }} psql
+    psql
     --host={{ _zabbix_pg_connect_host }} --port={{ _zabbix_pg_connect_port }}
     --username={{ zabbix_user }} --dbname={{ zabbix_db }}
     --file={{ zabbix_server_timescaledb_schema_path }}
+  environment:
+    PGPASSWORD: "{{ zabbix_pass }}"
   when:
     - zabbix_db_timescaledb
     - zabbix_pg_schema_check.stdout | default('') | trim == ''
+  no_log: true
   run_once: true
   delegate_to: "{{ ansible_play_hosts_all[0] }}"
   tags:

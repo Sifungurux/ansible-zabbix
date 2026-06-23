@@ -26,6 +26,10 @@ zabbix_db_host: ""  # used as DBHost directly when zabbix_db_proxy_mode == none
 zabbix_db_port: 5432  # used as DBPort directly when zabbix_db_proxy_mode == none
 zabbix_db_timescaledb: true  # apply the TimescaleDB schema after the base pgsql schema
 
+# PostgreSQL superuser used to create the Zabbix database/user/schema (pgsql backend only)
+zabbix_pg_admin_user: postgres
+zabbix_pg_admin_pass: changeme
+
 external_script_dir: "/usr/lib/zabbix/externalscripts"
 tls: false
 ssl: false

@@ -184,6 +184,8 @@ All Role Variables
 | `zabbix_db_host` | `""` | Used as `DBHost` directly when `zabbix_db_proxy_mode == none` |
 | `zabbix_db_port` | `5432` | Used as `DBPort` directly when `zabbix_db_proxy_mode == none` |
 | `zabbix_db_timescaledb` | `true` | Apply the TimescaleDB schema after the base pgsql schema (PostgreSQL backend only) |
+| `zabbix_pg_admin_user` | `postgres` | PostgreSQL superuser used to create the Zabbix database/user/schema (pgsql backend only) |
+| `zabbix_pg_admin_pass` | `changeme` | Password for `zabbix_pg_admin_user` (pgsql backend only). **Change this** |
 
 ---
 
@@ -246,11 +248,15 @@ Run 2+ `zabbix-server` nodes against a PostgreSQL/Patroni cluster managed separa
       - { host: db1.example.com, port: 5432, restapi_port: 8008 }
       - { host: db2.example.com, port: 5432, restapi_port: 8008 }
       - { host: db3.example.com, port: 5432, restapi_port: 8008 }
+    # Superuser credentials for the existing Patroni cluster — used once to
+    # create the zabbix database/user/schema, not used by zabbix-server itself
+    zabbix_pg_admin_user: postgres
+    zabbix_pg_admin_pass: "CHANGE_ME_postgres_superuser_password"
   roles:
     - role: ansible-zabbix
 ```
 
-`ZABBIX_SERVER` must contain at least 2 hosts for HA. `db_backend: pgsql` plus `zabbix_ha_enabled: true` are the only required additions — `zabbix_db_proxy_mode` defaults to `haproxy`, so each node provisions its own local proxy on `zabbix_db_proxy_port` (default `6432`) and connects to it instead of to a single fixed database host.
+`ZABBIX_SERVER` must contain at least 2 hosts for HA. `db_backend: pgsql`, `zabbix_ha_enabled: true`, `zabbix_pg_nodes`, and the `zabbix_pg_admin_user`/`zabbix_pg_admin_pass` superuser credentials are the required additions — `zabbix_db_proxy_mode` defaults to `haproxy`, so each node provisions its own local proxy on `zabbix_db_proxy_port` (default `6432`) and connects to it instead of to a single fixed database host.
 
 ---
 
