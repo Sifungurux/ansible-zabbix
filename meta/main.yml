@@ -1,5 +1,7 @@
 ---
 galaxy_info:
+  role_name: zabbix
+  namespace: sifungurux
   author: "Sifungurux"
   description: "Installs and configures Zabbix server, agent, and proxy on RHEL and Debian-based systems"
   license: BSD
@@ -7,16 +9,13 @@ galaxy_info:
   platforms:
     - name: EL
       versions:
-        - 8
-        - 9
+        - all
     - name: Ubuntu
       versions:
-        - jammy
-        - noble
+        - all
     - name: Debian
       versions:
-        - bullseye
-        - bookworm
+        - all
   galaxy_tags:
     - monitoring
     - zabbix
