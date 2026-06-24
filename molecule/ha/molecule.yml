@@ -24,6 +24,8 @@ platforms:
       - name: zabbix-ha-test
 provisioner:
   name: ansible
+  options:
+    skip-tags: add.host,proxy.add
   playbooks:
     prepare: prepare.yml
     converge: converge.yml
